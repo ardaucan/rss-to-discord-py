@@ -4,9 +4,11 @@ import os
 import sys
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
+from urllib.parse import urlparse
 
 import feedparser
 import requests
+from bs4 import BeautifulSoup
 
 # Logging configuration
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -27,6 +29,15 @@ def load_json(path, default=None):
 def save_json(path, data):
     with open(path, "w", encoding="utf-8") as fh:
         json.dump(data, fh, indent=2, ensure_ascii=False)
+
+
+def clean_html(html_content):
+    if not html_content:
+        return ""
+    # This achieves the same result as 'contentSnippet' in JavaScript's rss-parser.
+    # It parses the HTML and returns only the visible text content.
+    soup = BeautifulSoup(html_content, "html.parser")
+    return soup.get_text(separator=" ", strip=True)
 
 
 def parse_datetime(entry):
@@ -82,22 +93,25 @@ def select_image_url(entry):
     return None
 
 
-def build_embed(entry, category, source_url):
+def build_embed(entry, source_url):
     title = entry.get("title") or "Untitled"
     url = entry.get("link") or entry.get("id") or ""
-    description = entry.get("summary") or entry.get("description") or "No description available."
-    description = description.strip()
+    raw_description = entry.get("summary") or entry.get("description") or "No description available."
+    
+    # Clean the HTML to get a snippet, then truncate to 300 characters
+    description = clean_html(raw_description)
     if len(description) > 300:
         description = description[:297].rstrip() + "..."
 
     published_dt = parse_datetime(entry)
     timestamp = published_dt.isoformat() if published_dt else None
 
+    domain = urlparse(source_url).netloc
     embed = {
         "title": title,
         "url": url,
         "description": description,
-        "footer": {"text": f"{category} · {source_url}"},
+        "footer": {"text": domain},
     }
     if timestamp:
         embed["timestamp"] = timestamp
@@ -116,7 +130,6 @@ def build_embed(entry, category, source_url):
 def post_embed(webhook_url, embed, use_proxy=False):
     if use_proxy:
         webhook_url = webhook_url.replace("discord.com", "webhook.lewisakura.moe")
-
     payload = {"embeds": [embed]}
     response = requests.post(webhook_url, json=payload, timeout=REQUEST_TIMEOUT)
     response.raise_for_status()
@@ -182,7 +195,7 @@ def main():
 
             last_sent_dt = stored_dt
             for entry_dt, entry in entries:
-                embed = build_embed(entry, category, source)
+                embed = build_embed(entry, source)
                 try:
                     post_embed(webhook_url, embed, use_proxy)
                     last_sent_dt = entry_dt
