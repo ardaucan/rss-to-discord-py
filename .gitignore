@@ -5,3 +5,6 @@ __pycache__/
 # Sensitive configuration and state
 config.json
 state.json
+
+# backups
+*.bak

@@ -113,7 +113,10 @@ def build_embed(entry, category, source_url):
     return embed
 
 
-def post_embed(webhook_url, embed):
+def post_embed(webhook_url, embed, use_proxy=False):
+    if use_proxy:
+        webhook_url = webhook_url.replace("discord.com", "webhook.lewisakura.moe")
+
     payload = {"embeds": [embed]}
     response = requests.post(webhook_url, json=payload, timeout=REQUEST_TIMEOUT)
     response.raise_for_status()
@@ -140,6 +143,7 @@ def main():
         logging.error(f"{CONFIG_PATH} missing or invalid. Please copy config.json.example to config.json and fill in your webhook URLs.")
         sys.exit(1)
 
+    use_proxy = config.get("use_proxy", False)
     state = load_json(STATE_PATH, {}) or {}
     updated_state = False
 
@@ -180,7 +184,7 @@ def main():
             for entry_dt, entry in entries:
                 embed = build_embed(entry, category, source)
                 try:
-                    post_embed(webhook_url, embed)
+                    post_embed(webhook_url, embed, use_proxy)
                     last_sent_dt = entry_dt
                     logging.info(f"Posted new item from {source} to {category}: {entry.get('title')}")
                 except Exception as exc:
