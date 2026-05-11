@@ -80,16 +80,44 @@ def fetch_feed(url):
 
 
 def select_image_url(entry):
+    # 1. Check Media Content (Media RSS standard)
     if entry.get("media_content"):
         for media in entry["media_content"]:
             if isinstance(media, dict) and media.get("url"):
                 return media["url"]
+
+    # 2. Check Enclosures (Standard RSS attachments)
+    if entry.get("links"):
+        for link in entry["links"]:
+            if link.get("rel") == "enclosure" and "image" in link.get("type", ""):
+                return link.get("href")
+
+    # 3. Check Media Thumbnail
     if entry.get("media_thumbnail"):
         for thumb in entry["media_thumbnail"]:
             if isinstance(thumb, dict) and thumb.get("url"):
                 return thumb["url"]
+
+    # 4. Check 'image' field
     if entry.get("image") and isinstance(entry["image"], dict):
-        return entry["image"].get("href") or entry["image"].get("url")
+        url = entry["image"].get("href") or entry["image"].get("url")
+        if url:
+            return url
+
+    # 5. Fallback: Parse HTML content for the first <img> tag
+    # Many feeds (like Aeon or Kayıp Rıhtım) put images inside summary or description
+    html_content = ""
+    if entry.get("content"):
+        html_content = entry["content"][0].get("value", "")
+    if not html_content:
+        html_content = entry.get("summary") or entry.get("description") or ""
+
+    if html_content:
+        soup = BeautifulSoup(html_content, "html.parser")
+        img = soup.find("img")
+        if img and img.get("src"):
+            return img["src"]
+
     return None
 
 
