@@ -1,0 +1,62 @@
+{
+  "categories": [
+    {
+      "name": "games",
+      "discord_webhook_url": "YOUR_DISCORD_WEBHOOK_URL",
+      "rss_feed_urls": [
+        "https://tr.ign.com/feed.xml"
+      ]
+    },
+    {
+      "name": "science",
+      "discord_webhook_url": "YOUR_DISCORD_WEBHOOK_URL",
+      "rss_feed_urls": [
+        "https://evrimagaci.org/rss.xml",
+        "https://sarkac.org/feed/",
+        "https://barisozcan.com/feed/",
+        "https://www.quantamagazine.org/feed/",
+        "https://nautil.us/feed/"
+      ]
+    },
+    {
+      "name": "technology",
+      "discord_webhook_url": "YOUR_DISCORD_WEBHOOK_URL",
+      "rss_feed_urls": [
+        "https://www.donanimhaber.com/rss/tum/"
+      ]
+    },
+    {
+      "name": "cinema",
+      "discord_webhook_url": "YOUR_DISCORD_WEBHOOK_URL",
+      "rss_feed_urls": [
+        "https://www.beyazperde.com/rss/haberler.xml",
+        "https://kayiprihtim.com/feed/"
+      ]
+    },
+    {
+      "name": "software-development",
+      "discord_webhook_url": "YOUR_DISCORD_WEBHOOK_URL",
+      "rss_feed_urls": [
+        "https://hnrss.org/best",
+        "https://www.freecodecamp.org/news/rss/",
+        "https://github.blog/feed/"
+      ]
+    },
+    {
+      "name": "sports",
+      "discord_webhook_url": "YOUR_DISCORD_WEBHOOK_URL",
+      "rss_feed_urls": [
+        "https://www.trthaber.com/spor_articles.rss",
+        "https://www.cumhuriyet.com.tr/rss/spor"
+      ]
+    },
+    {
+      "name": "philosophy",
+      "discord_webhook_url": "YOUR_DISCORD_WEBHOOK_URL",
+      "rss_feed_urls": [
+        "https://aeon.co/feed.rss",
+        "https://onculanalitikfelsefe.com/feed/"
+      ]
+    }
+  ]
+}

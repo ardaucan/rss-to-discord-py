@@ -1,0 +1,7 @@
+# Python cache
+__pycache__/
+.venv/
+
+# Sensitive configuration and state
+config.json
+state.json
