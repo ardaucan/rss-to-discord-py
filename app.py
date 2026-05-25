@@ -11,7 +11,9 @@ import requests
 from bs4 import BeautifulSoup
 
 # Logging configuration
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
 DATA_DIR = os.getenv("RSSDC_DATA_DIR", ".")
 CONFIG_PATH = os.path.join(DATA_DIR, "config.json")
@@ -42,24 +44,16 @@ def clean_html(html_content):
 
 
 def parse_datetime(entry):
-    candidates = [
-        entry.get("published_parsed"),
-        entry.get("updated_parsed"),
-        entry.get("published"),
-        entry.get("updated"),
-    ]
-
-    for value in candidates:
+    for key in ["published_parsed", "updated_parsed", "published", "updated"]:
+        value = entry.get(key)
         if not value:
             continue
-
         if hasattr(value, "tm_year"):
             try:
                 dt = datetime(*value[:6], tzinfo=timezone.utc)
                 return dt
             except Exception:
                 continue
-
         if isinstance(value, str):
             try:
                 dt = parsedate_to_datetime(value)
@@ -70,12 +64,13 @@ def parse_datetime(entry):
             if dt.tzinfo is None:
                 dt = dt.replace(tzinfo=timezone.utc)
             return dt.astimezone(timezone.utc)
-
     return None
 
 
 def fetch_feed(url):
-    response = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=REQUEST_TIMEOUT)
+    response = requests.get(
+        url, headers={"User-Agent": USER_AGENT}, timeout=REQUEST_TIMEOUT
+    )
     response.raise_for_status()
     return feedparser.parse(response.content)
 
@@ -125,8 +120,10 @@ def select_image_url(entry):
 def build_embed(entry, source_url):
     title = entry.get("title") or "Untitled"
     url = entry.get("link") or entry.get("id") or ""
-    raw_description = entry.get("summary") or entry.get("description") or "No description available."
-    
+    raw_description = (
+        entry.get("summary") or entry.get("description") or "No description available."
+    )
+
     # Clean the HTML to get a snippet, then truncate to 300 characters
     description = clean_html(raw_description)
     if len(description) > 300:
@@ -182,7 +179,9 @@ def iso_to_datetime(value):
 def main():
     config = load_json(CONFIG_PATH, {})
     if not config or "categories" not in config:
-        logging.error(f"{CONFIG_PATH} missing or invalid. Please copy config.json.example to config.json and fill in your webhook URLs.")
+        logging.error(
+            f"{CONFIG_PATH} missing or invalid. Please copy config.json.example to config.json and fill in your webhook URLs."
+        )
         sys.exit(1)
 
     use_proxy = config.get("use_proxy", False)
@@ -216,11 +215,13 @@ def main():
 
             # Sort from oldest to newest
             entries.sort(key=lambda item: item[0])
-            
+
             # If no state (initial run), send only the latest entry
             if stored_dt is None:
                 entries = [entries[-1]]
-                logging.info(f"Initial run: only the latest item from {source} will be posted.")
+                logging.info(
+                    f"Initial run: only the latest item from {source} will be posted."
+                )
 
             last_sent_dt = stored_dt
             for entry_dt, entry in entries:
@@ -228,7 +229,9 @@ def main():
                 try:
                     post_embed(webhook_url, embed, use_proxy)
                     last_sent_dt = entry_dt
-                    logging.info(f"Posted new item from {source} to {category}: {entry.get('title')}")
+                    logging.info(
+                        f"Posted new item from {source} to {category}: {entry.get('title')}"
+                    )
                 except Exception as exc:
                     logging.error(f"Failed to post item for {source}: {exc}")
                     break  # Stop processing this feed on error; will retry in the next run
