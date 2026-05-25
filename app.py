@@ -187,7 +187,8 @@ def main():
 
     use_proxy = config.get("use_proxy", False)
     state = load_json(STATE_PATH, {}) or {}
-    updated_state = False
+    # Yeni öğe olmasa bile script'in çalışma zamanını kaydedelim
+    state["_last_run"] = datetime.now(timezone.utc).isoformat()
 
     for section in config.get("categories", []):
         category = section.get("name") or "general"
@@ -243,11 +244,9 @@ def main():
 
             if last_sent_dt and (stored_dt is None or last_sent_dt > stored_dt):
                 state[source] = last_sent_dt.isoformat()
-                updated_state = True
 
-    if updated_state:
-        save_json(STATE_PATH, state)
-        logging.info("State updated: %s", STATE_PATH)
+    save_json(STATE_PATH, state)
+    logging.info("State updated: %s", STATE_PATH)
 
 
 if __name__ == "__main__":
