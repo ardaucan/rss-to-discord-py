@@ -25,11 +25,12 @@ A lightweight and efficient Python script that monitors multiple RSS feeds and a
    cd rss-to-discord-py
    ```
 2. Create a virtual environment (optional):
+
    ```bash
    python3 -m venv .venv
    . .venv/bin/activate
    ```
-  
+
 3. Install dependencies:
    ```bash
    pip install -r requirements.txt
@@ -38,6 +39,7 @@ A lightweight and efficient Python script that monitors multiple RSS feeds and a
 ## Configuration
 
 1. Create your configuration file from the example:
+
    ```bash
    cp config.json.example config.json
    ```
@@ -52,6 +54,7 @@ A lightweight and efficient Python script that monitors multiple RSS feeds and a
 ## Usage
 
 Run the script:
+
 ```bash
 python app.py
 ```
@@ -64,7 +67,8 @@ python app.py
 
 It is recommended to run this script periodically using a task scheduler like `cron`.
 
-Example Cron job (runs every 15 minutes):
+Example Cron job (runs every 2 hours):
+
 ```cron
-*/15 * * * * cd /path/to/rss-to-discord-py && /usr/bin/python3 app.py
+0 */2 * * * cd /path/to/rss-to-discord-py && /path/to/rss-to-discord-py/.venv/bin/python3 app.py >> /tmp/rss-dc.log 2>&1
 ```
