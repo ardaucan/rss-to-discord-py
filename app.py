@@ -180,7 +180,8 @@ def main():
     config = load_json(CONFIG_PATH, {})
     if not config or "categories" not in config:
         logging.error(
-            f"{CONFIG_PATH} missing or invalid. Please copy config.json.example to config.json and fill in your webhook URLs."
+            "%s missing or invalid. Please copy config.json.example to config.json and fill in your webhook URLs.",
+            CONFIG_PATH,
         )
         sys.exit(1)
 
@@ -192,14 +193,14 @@ def main():
         category = section.get("name") or "general"
         webhook_url = section.get("discord_webhook_url")
         if not webhook_url:
-            logging.warning(f"Skipping category {category}: missing webhook URL.")
+            logging.warning("Skipping category %s: missing webhook URL.", category)
             continue
 
         for source in section.get("rss_feed_urls", []):
             try:
                 feed = fetch_feed(source)
             except Exception as exc:
-                logging.error(f"Failed to fetch {source}: {exc}")
+                logging.error("Failed to fetch %s: %s", source, exc)
                 continue
 
             stored_dt = iso_to_datetime(state.get(source))
@@ -220,7 +221,8 @@ def main():
             if stored_dt is None:
                 entries = [entries[-1]]
                 logging.info(
-                    f"Initial run: only the latest item from {source} will be posted."
+                    "Initial run: only the latest item from %s will be posted.",
+                    source,
                 )
 
             last_sent_dt = stored_dt
@@ -230,10 +232,13 @@ def main():
                     post_embed(webhook_url, embed, use_proxy)
                     last_sent_dt = entry_dt
                     logging.info(
-                        f"Posted new item from {source} to {category}: {entry.get('title')}"
+                        "Posted new item from %s to %s: %s",
+                        source,
+                        category,
+                        entry.get("title"),
                     )
                 except Exception as exc:
-                    logging.error(f"Failed to post item for {source}: {exc}")
+                    logging.error("Failed to post item for %s: %s", source, exc)
                     break  # Stop processing this feed on error; will retry in the next run
 
             if last_sent_dt and (stored_dt is None or last_sent_dt > stored_dt):
@@ -242,7 +247,7 @@ def main():
 
     if updated_state:
         save_json(STATE_PATH, state)
-        logging.info(f"State updated: {STATE_PATH}")
+        logging.info("State updated: %s", STATE_PATH)
 
 
 if __name__ == "__main__":
