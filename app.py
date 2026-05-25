@@ -13,8 +13,9 @@ from bs4 import BeautifulSoup
 # Logging configuration
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-CONFIG_PATH = "config.json"
-STATE_PATH = "state.json"
+DATA_DIR = os.getenv("RSSDC_DATA_DIR", ".")
+CONFIG_PATH = os.path.join(DATA_DIR, "config.json")
+STATE_PATH = os.path.join(DATA_DIR, "state.json")
 USER_AGENT = "rss-to-discord-py/1.0 (+https://github.com)"
 REQUEST_TIMEOUT = 10
 
