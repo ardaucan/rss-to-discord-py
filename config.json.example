@@ -1,12 +1,11 @@
 {
   "use_proxy": false,
-  "categories": [
+  "batch_size": 10,
+  "channels": [
     {
       "name": "games",
       "discord_webhook_url": "YOUR_DISCORD_WEBHOOK_URL",
-      "rss_feed_urls": [
-        "https://tr.ign.com/feed.xml"
-      ]
+      "rss_feed_urls": ["https://tr.ign.com/feed.xml"]
     },
     {
       "name": "science",
@@ -22,9 +21,7 @@
     {
       "name": "technology",
       "discord_webhook_url": "YOUR_DISCORD_WEBHOOK_URL",
-      "rss_feed_urls": [
-        "https://www.donanimhaber.com/rss/tum/"
-      ]
+      "rss_feed_urls": ["https://www.donanimhaber.com/rss/tum/"]
     },
     {
       "name": "cinema",

@@ -5,11 +5,11 @@ A lightweight and efficient Python script that monitors multiple RSS feeds and a
 ## Features
 
 - **Category-Based Routing**: Organize multiple feeds into categories and send them to different Discord channels.
-- **Rich Discord Embeds**: Posts content as clean embeds including titles, descriptions, and high-quality images.
+- **Rich Discord Embeds**: Posts content as clean embeds including titles, descriptions, timestamps, and high-quality images.
 - **Advanced Image Extraction**: Automatically finds images by checking MediaRSS tags, enclosures, and fallback HTML parsing for `<img>` tags.
 - **YouTube Integration**: Detects YouTube links in video-only posts and generates high-quality thumbnails.
 - **Smart Snippets**: Clean plain-text descriptions stripped of HTML tags and truncated for optimal Discord viewing.
-- **Persistence**: Uses a `state.json` file to keep track of seen items and prevent duplicate notifications.
+- **Atomic Persistence**: Uses a `state.json` file to keep track of seen items. State is updated incrementally after each successful batch delivery to prevent duplicates and handle interruptions gracefully.
 - **Proxy Support**: Optional support for `webhook.lewisakura.moe` proxy to help manage Discord rate limits.
 
 ## Prerequisites
@@ -45,9 +45,10 @@ A lightweight and efficient Python script that monitors multiple RSS feeds and a
    ```
 
 2. Edit `config.json` with your specific settings:
-   - `use_proxy`: Set to `true` to route Discord requests through the Lewisakura proxy.
-   - `categories`: List your feed groups here.
-     - `name`: Friendly name for logs.
+   - `use_proxy`: Set to `true` to route Discord requests through the proxy.
+   - `batch_size`: Number of new messages to batch together in a single Discord request (suggested max 10).
+   - `channels`: List your feed groups here.
+     - `name`: Friendly channel name for logs.
      - `discord_webhook_url`: Your Discord channel webhook.
      - `rss_feed_urls`: List of RSS feeds to watch for this category.
 
@@ -61,7 +62,7 @@ python app.py
 
 **state.json** file will be created automatically to store the latest seen items. This ensures that only new entries are posted to Discord on subsequent runs.
 
-**Initial Run**: On the first execution, the script will only post the **latest** item from each feed to initialize its state without spamming your channel.
+**Initial Run**: On the first execution, the script will fetch and post entries from the **last 24 hours** to initialize its state.
 
 ### Automation
 

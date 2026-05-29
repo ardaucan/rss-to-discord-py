@@ -1,11 +1,17 @@
+"""
+RSS to Discord Python Script
+This script fetches RSS feeds and posts new entries to Discord via webhooks.
+It maintains a state file to ensure only new entries are posted.
+"""
+
 import json
+import time
 import logging
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from email.utils import parsedate_to_datetime
 from urllib.parse import urlparse
-
 import feedparser
 import requests
 from bs4 import BeautifulSoup
@@ -23,6 +29,7 @@ REQUEST_TIMEOUT = 10
 
 
 def load_json(path, default=None):
+    """Loads JSON data from the specified path. If the file doesn't exist, returns the default value."""
     if not os.path.exists(path):
         return default
     with open(path, "r", encoding="utf-8") as fh:
@@ -30,20 +37,27 @@ def load_json(path, default=None):
 
 
 def save_json(path, data):
+    """Saves the given data as JSON to the specified path, creating directories if needed."""
     with open(path, "w", encoding="utf-8") as fh:
         json.dump(data, fh, indent=2, ensure_ascii=False)
 
 
 def clean_html(html_content):
+    """
+    Parses the HTML and returns only the visible text content. Achieves the same result as
+    'contentSnippet' in JavaScript's rss-parser.
+    """
     if not html_content:
         return ""
-    # This achieves the same result as 'contentSnippet' in JavaScript's rss-parser.
-    # It parses the HTML and returns only the visible text content.
     soup = BeautifulSoup(html_content, "html.parser")
     return soup.get_text(separator=" ", strip=True)
 
 
 def parse_datetime(entry):
+    """
+    Tries to extract a datetime from the rss feed entry using common fields. Returns a
+    timezone-aware datetime in UTC or None if not found.
+    """
     for key in ["published_parsed", "updated_parsed", "published", "updated"]:
         value = entry.get(key)
         if not value:
@@ -68,6 +82,7 @@ def parse_datetime(entry):
 
 
 def fetch_feed(url):
+    """Fetches the RSS feed from the given URL using requests and parses it with feedparser."""
     response = requests.get(
         url, headers={"User-Agent": USER_AGENT}, timeout=REQUEST_TIMEOUT
     )
@@ -76,71 +91,65 @@ def fetch_feed(url):
 
 
 def select_image_url(entry):
+    """Tries to find a suitable image URL from the RSS entry using multiple strategies"""
     # 1. Check Media Content (Media RSS standard)
     if entry.get("media_content"):
         for media in entry["media_content"]:
             if isinstance(media, dict) and media.get("url"):
                 return media["url"]
-
     # 2. Check Enclosures (Standard RSS attachments)
     if entry.get("links"):
         for link in entry["links"]:
             if link.get("rel") == "enclosure" and "image" in link.get("type", ""):
                 return link.get("href")
-
     # 3. Check Media Thumbnail
     if entry.get("media_thumbnail"):
         for thumb in entry["media_thumbnail"]:
             if isinstance(thumb, dict) and thumb.get("url"):
                 return thumb["url"]
-
     # 4. Check 'image' field
     if entry.get("image") and isinstance(entry["image"], dict):
         url = entry["image"].get("href") or entry["image"].get("url")
         if url:
             return url
-
     # 5. Fallback: Parse HTML content for the first <img> tag
-    # Many feeds (like Aeon or Kayıp Rıhtım) put images inside summary or description
+    # Many feeds put images inside summary or description
     html_content = ""
     if entry.get("content"):
         html_content = entry["content"][0].get("value", "")
     if not html_content:
         html_content = entry.get("summary") or entry.get("description") or ""
-
     if html_content:
         soup = BeautifulSoup(html_content, "html.parser")
         img = soup.find("img")
         if img and img.get("src"):
             return img["src"]
-
     return None
 
 
-def build_embed(entry, source_url):
+def build_embed(entry, source_url, published_dt):
+    """Constructs a Discord embed dictionary from the RSS feed entry."""
     title = entry.get("title") or "Untitled"
     url = entry.get("link") or entry.get("id") or ""
     raw_description = (
         entry.get("summary") or entry.get("description") or "No description available."
     )
-
     # Clean the HTML to get a snippet, then truncate to 300 characters
     description = clean_html(raw_description)
     if len(description) > 300:
         description = description[:297].rstrip() + "..."
 
-    published_dt = parse_datetime(entry)
-    timestamp = published_dt.isoformat() if published_dt else None
-
     domain = urlparse(source_url).netloc
     embed = {
+        "_meta": {
+            "rss_url": source_url,
+        },
         "title": title,
         "url": url,
         "description": description,
         "footer": {"text": domain},
+        "timestamp": published_dt.isoformat(),
     }
-    if timestamp:
-        embed["timestamp"] = timestamp
 
     author_name = entry.get("author") or entry.get("dc_creator")
     if author_name:
@@ -153,15 +162,32 @@ def build_embed(entry, source_url):
     return embed
 
 
-def post_embed(webhook_url, embed, use_proxy=False):
+def post_embeds(webhook_url, embeds, state, use_proxy=False, batch_size=10):
+    """
+    Posts embeds to Discord in batches. Updates state for each successful batch.
+    """
     if use_proxy:
         webhook_url = webhook_url.replace("discord.com", "webhook.lewisakura.moe")
-    payload = {"embeds": [embed]}
-    response = requests.post(webhook_url, json=payload, timeout=REQUEST_TIMEOUT)
-    response.raise_for_status()
+    for i in range(0, len(embeds), batch_size):
+        batch = embeds[i : i + batch_size]
+        batch_metas = [e.pop("_meta", {}) for e in batch]
+
+        payload = {"embeds": batch}
+        response = requests.post(webhook_url, json=payload, timeout=REQUEST_TIMEOUT)
+        response.raise_for_status()
+
+        for j, embed in enumerate(batch):
+            rss_url = batch_metas[j].get("rss_url")
+            state[rss_url] = embed["timestamp"]
+
+        time.sleep(1)
 
 
 def iso_to_datetime(value):
+    """
+    Converts an ISO 8601 string to a timezone-aware datetime in UTC.
+    If parsing fails, returns None.
+    """
     if not value:
         return None
     try:
@@ -177,8 +203,9 @@ def iso_to_datetime(value):
 
 
 def main():
+    """Main entry point of the script."""
     config = load_json(CONFIG_PATH, {})
-    if not config or "categories" not in config:
+    if not config or "channels" not in config:
         logging.error(
             "%s missing or invalid. Please copy config.json.example to config.json and fill in your webhook URLs.",
             CONFIG_PATH,
@@ -186,64 +213,53 @@ def main():
         sys.exit(1)
 
     use_proxy = config.get("use_proxy", False)
+    batch_size = config.get("batch_size", 10)
+
     state = load_json(STATE_PATH, {}) or {}
-    # Yeni öğe olmasa bile script'in çalışma zamanını kaydedelim
     state["_last_run"] = datetime.now(timezone.utc).isoformat()
 
-    for section in config.get("categories", []):
-        category = section.get("name") or "general"
-        webhook_url = section.get("discord_webhook_url")
+    for channel in config.get("channels", []):
+        channel_name = channel.get("name") or "unknown"
+        webhook_url = channel.get("discord_webhook_url")
         if not webhook_url:
-            logging.warning("Skipping category %s: missing webhook URL.", category)
+            logging.warning("Skipping channel '%s': missing webhook URL.", channel_name)
             continue
 
-        for source in section.get("rss_feed_urls", []):
+        channel_embeds: list[dict] = []
+        for rss_url in channel.get("rss_feed_urls", []):
             try:
-                feed = fetch_feed(source)
+                feed = fetch_feed(rss_url)
             except Exception as exc:
-                logging.error("Failed to fetch %s: %s", source, exc)
+                logging.error("Failed to fetch %s: %s", rss_url, exc)
                 continue
 
-            stored_dt = iso_to_datetime(state.get(source))
-            entries = []
+            stored_dt = iso_to_datetime(state.get(rss_url)) or (
+                datetime.now(timezone.utc) - timedelta(days=1)
+            )
 
             for entry in feed.entries:
                 entry_dt = parse_datetime(entry)
-                if entry_dt and (stored_dt is None or entry_dt > stored_dt):
-                    entries.append((entry_dt, entry))
-
-            if not entries:
-                continue
-
-            # Sort from oldest to newest
-            entries.sort(key=lambda item: item[0])
-
-            # If no state (initial run), send only the latest entry
-            if stored_dt is None:
-                entries = [entries[-1]]
-                logging.info(
-                    "Initial run: only the latest item from %s will be posted.",
-                    source,
-                )
-
-            last_sent_dt = stored_dt
-            for entry_dt, entry in entries:
-                embed = build_embed(entry, source)
+                if not entry_dt or (stored_dt is not None and entry_dt <= stored_dt):
+                    continue  # skip because it is outdated
                 try:
-                    post_embed(webhook_url, embed, use_proxy)
-                    last_sent_dt = entry_dt
-                    logging.info(
-                        "Posted new item from %s to %s: %s",
-                        source,
-                        category,
-                        entry.get("title"),
-                    )
+                    embed = build_embed(entry, rss_url, entry_dt)
+                    channel_embeds.append(embed)
                 except Exception as exc:
-                    logging.error("Failed to post item for %s: %s", source, exc)
-                    break  # Stop processing this feed on error; will retry in the next run
+                    logging.error(
+                        "Error building embed for entry %s: %s",
+                        entry.get("link"),
+                        exc,
+                    )
+                    continue
 
-            if last_sent_dt and (stored_dt is None or last_sent_dt > stored_dt):
-                state[source] = last_sent_dt.isoformat()
+        if channel_embeds:
+            channel_embeds.sort(key=lambda e: e["timestamp"])  # oldest to newest
+            try:
+                post_embeds(webhook_url, channel_embeds, state, use_proxy, batch_size)
+            except Exception as exc:
+                logging.error(
+                    "Failed to post embeds for channel %s: %s", channel_name, exc
+                )
 
     save_json(STATE_PATH, state)
     logging.info("State updated: %s", STATE_PATH)
