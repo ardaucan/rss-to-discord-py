@@ -1,10 +1,14 @@
 {
   "use_proxy": false,
   "batch_size": 10,
+  "username": "RSS Bot",
+  "avatar_url": "https://example.com/default-avatar.png",
   "channels": [
     {
       "name": "games",
       "discord_webhook_url": "YOUR_DISCORD_WEBHOOK_URL",
+      "username": "Gaming News",
+      "avatar_url": "https://example.com/gaming-avatar.png",
       "rss_feed_urls": ["https://tr.ign.com/feed.xml"]
     },
     {

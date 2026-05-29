@@ -162,17 +162,28 @@ def build_embed(entry, source_url, published_dt):
     return embed
 
 
-def post_embeds(webhook_url, embeds, state, use_proxy=False, batch_size=10):
+def post_embeds(settings, embeds, state):
     """
     Posts embeds to Discord in batches. Updates state for each successful batch.
     """
+    webhook_url = settings.get("discord_webhook_url")
+    use_proxy = settings.get("use_proxy", False)
+    batch_size = settings.get("batch_size", 10)
+    username = settings.get("username")
+    avatar_url = settings.get("avatar_url")
+
     if use_proxy:
         webhook_url = webhook_url.replace("discord.com", "webhook.lewisakura.moe")
+
     for i in range(0, len(embeds), batch_size):
         batch = embeds[i : i + batch_size]
         batch_metas = [e.pop("_meta", {}) for e in batch]
 
         payload = {"embeds": batch}
+        if username:
+            payload["username"] = username
+        if avatar_url:
+            payload["avatar_url"] = avatar_url
         response = requests.post(webhook_url, json=payload, timeout=REQUEST_TIMEOUT)
         response.raise_for_status()
 
@@ -212,16 +223,12 @@ def main():
         )
         sys.exit(1)
 
-    use_proxy = config.get("use_proxy", False)
-    batch_size = config.get("batch_size", 10)
-
     state = load_json(STATE_PATH, {}) or {}
     state["_last_run"] = datetime.now(timezone.utc).isoformat()
 
     for channel in config.get("channels", []):
-        channel_name = channel.get("name") or "unknown"
-        webhook_url = channel.get("discord_webhook_url")
-        if not webhook_url:
+        channel_name = channel.get("name")
+        if not channel.get("discord_webhook_url"):
             logging.warning("Skipping channel '%s': missing webhook URL.", channel_name)
             continue
 
@@ -255,7 +262,10 @@ def main():
         if channel_embeds:
             channel_embeds.sort(key=lambda e: e["timestamp"])  # oldest to newest
             try:
-                post_embeds(webhook_url, channel_embeds, state, use_proxy, batch_size)
+                # Merge global config with channel-specific settings, giving precedence to channel settings
+                merged_settings = {**config, **channel}
+                merged_settings.pop("channels", None)
+                post_embeds(merged_settings, channel_embeds, state)
             except Exception as exc:
                 logging.error(
                     "Failed to post embeds for channel %s: %s", channel_name, exc

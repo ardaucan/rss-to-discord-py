@@ -45,12 +45,16 @@ A lightweight and efficient Python script that monitors multiple RSS feeds and a
    ```
 
 2. Edit `config.json` with your specific settings:
-   - `use_proxy`: Set to `true` to route Discord requests through the proxy.
-   - `batch_size`: Number of new messages to batch together in a single Discord request (suggested max 10).
-   - `channels`: List your feed groups here.
-     - `name`: Friendly channel name for logs.
-     - `discord_webhook_url`: Your Discord channel webhook.
-     - `rss_feed_urls`: List of RSS feeds to watch for this category.
+   - `use_proxy`: (Default: `false`) Set to `true` to route Discord requests through a proxy.
+   - `batch_size`: (Default: `10`) Number of messages to batch per Discord request (max 10 is recommended).
+   - `username`: Global display name for the webhook.
+   - `avatar_url`: Global profile picture URL for the webhook.
+   - `channels`: **[Required]** List of configuration objects for each Discord channel.
+     - `name`: Label used in application logs to identify this group.
+     - `discord_webhook_url`: **[Required]** Your Discord Webhook URL.
+     - `rss_feed_urls`: **[Required]** A list of RSS feed URLs to monitor for this channel.
+     - `username`: Overrides the global username for this specific channel.
+     - `avatar_url`: Overrides the global avatar for this specific channel.
 
 ## Usage
 
